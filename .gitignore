@@ -25,6 +25,7 @@ bin/
 out/
 !**/src/main/**/out/
 !**/src/test/**/out/
+pub-sub-config-73c05c588437.json
 
 ### NetBeans ###
 /nbproject/private/

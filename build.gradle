@@ -1,29 +1,105 @@
 plugins {
-	id 'java'
-	id 'org.springframework.boot' version '3.5.6'
-	id 'io.spring.dependency-management' version '1.1.7'
+    id 'java'
+    id 'org.springframework.boot' version '3.3.1'
+    id 'io.spring.dependency-management' version '1.1.5'
 }
 
 group = 'com.core.v1'
-version = '0.0.1-SNAPSHOT'
-description = 'This services is mainly used to configure google cloud features'
+version = '1.0.0-SNAPSHOT'
+description = 'This service is mainly used to configure Google Cloud features'
 
 java {
-	toolchain {
-		languageVersion = JavaLanguageVersion.of(21)
-	}
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+ext {
+    // Centralize versions for dependencies not managed by Spring BOMs
+    set('mapstructVersion', '1.5.3.Final')
+    set('commonsIoVersion', '2.14.0')
+    set('commonsBeanutilsVersion', '1.9.4')
 }
 
 repositories {
-	mavenCentral()
+    mavenCentral()
+}
+
+// Common dependency configurations
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+
+    // Apply resolution strategies to all configurations
+    all {
+        // Exclude a transitive dependency that may cause conflicts
+        exclude group: 'org.asynchttpclient', module: 'async-http-client'
+
+        resolutionStrategy.eachDependency { DependencyResolveDetails details ->
+            // Force a specific version of Netty to resolve conflicts across the project.
+            if (details.requested.group == 'io.netty') {
+                details.useVersion "4.1.112.Final" // Align with the version managed by Spring Boot
+            }
+        }
+    }
+}
+
+dependencyManagement {
+    imports {
+        // Let Spring Cloud and GCP BOMs manage dependency versions
+        mavenBom 'org.springframework.cloud:spring-cloud-dependencies:2023.0.2'
+        mavenBom 'com.google.cloud:spring-cloud-gcp-dependencies:5.4.1'
+    }
 }
 
 dependencies {
-	implementation 'org.springframework.boot:spring-boot-starter'
-	testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    // Spring Boot Starters
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+    // Spring Cloud & Integration
+    implementation 'org.springframework.cloud:spring-cloud-stream'
+    implementation 'org.springframework.cloud:spring-cloud-function-context'
+    implementation 'org.springframework.integration:spring-integration-core'
+
+    // Google Cloud
+    implementation 'com.google.cloud:spring-cloud-gcp-starter'
+    implementation 'com.google.cloud:spring-cloud-gcp-starter-pubsub'
+    implementation 'com.google.protobuf:protobuf-java'
+
+    // Utility Libraries
+    implementation 'org.codehaus.janino:janino'
+    implementation "commons-io:commons-io:${commonsIoVersion}"
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+    implementation 'com.fasterxml.jackson.core:jackson-annotations'
+    implementation("commons-beanutils:commons-beanutils:${commonsBeanutilsVersion}") {
+        exclude group: 'commons-logging', module: 'commons-logging'
+    }
+
+    // Code Generation & Mapping
+    implementation "org.mapstruct:mapstruct:${mapstructVersion}"
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+    annotationProcessor "org.mapstruct:mapstruct-processor:${mapstructVersion}"
+    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+
+    // Test Dependencies
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'io.projectreactor:reactor-test'
+    testImplementation 'org.springframework.cloud:spring-cloud-stream-test-binder'
 }
 
 tasks.named('test') {
-	useJUnitPlatform()
+    useJUnitPlatform()
+}
+
+tasks.withType(JavaCompile) {
+    // Configure MapStruct to generate Spring-based component models
+    options.compilerArgs += '-Amapstruct.defaultComponentModel=spring'
+}
+
+// Disable generation of Gradle Module Metadata for compatibility
+tasks.withType(GenerateModuleMetadata) {
+    enabled = false
 }
